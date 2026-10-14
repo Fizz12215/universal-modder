@@ -4,9 +4,9 @@ title: "White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9
 game: "White Knuckle"
 games_also: ["Minecraft Java Edition"]
 game_version: "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9"
-platform: windows
+platform: proton
 engine: unity-mono
-route: other
+route: reimplementation
 tools: ["Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
 anti_cheat: "none: White Knuckle is single-player and is never modified; only its files are read. Minecraft side tested in single-player, LAN and a Fabric dedicated server."
 status: working
@@ -25,11 +25,12 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 > - the game's on-foot physics, camera, hands, sounds and health rules;
 > - its damage look and hand-fatigue shader.
 >
-> The gameplay is a clean reimplementation in Java, from the decompiled C# and the serialized prefab
-> values. The art and audio never ship: each player runs a Python tool that builds a resource pack
-> from their own install. The real game was the oracle throughout. Shaders were disassembled, and
-> reference screenshots were captured by driving the game's dev console. The Minecraft side is
-> checked by an automated client game test, including a dedicated server.
+> The gameplay is reimplemented in Java from the decompiled C# (kept in a private folder, never
+> shipped) and the serialized prefab values. The art and audio never ship: each player runs a Python
+> tool that builds a private resource pack from their own install. The real game was the oracle
+> throughout. Shaders were disassembled, and reference screenshots were captured by driving the
+> game's dev console. The Minecraft side is checked by an automated client game test, including a
+> dedicated server.
 
 ## Setup
 - White Knuckle from Steam (app 3195790), on Fedora 44 (KDE Plasma, Wayland) through Proton
@@ -49,7 +50,12 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 - **Minecraft's role:** the adapter runs 2-3 sim steps per 20 Hz tick and uses Minecraft only for
   collision (`Entity.move`), ray casts and input.
 - **Assets:** built per player from their install (the "own copy" route): the mod jar has no game
-  files.
+  files. The pack is the game's own art and audio, so it stays with that player and isn't shared.
+- **Related ports into Minecraft:**
+  - [FPV LOGIC's drones](../fpv-logic/fpv-logic-drones-flight-model-rc-radio-and-3d-models-in-minecraft.md)
+    rebuild another game's physics as a Fabric sim;
+  - [Halo 3 from your own MCC install](../halo-3-mcc/halo-3-weapons-covenant-vehicles-and-maps-ported-into-minecr.md)
+    builds its resource pack from the user's install the same way.
 
 ## How the game works (what we had to learn)
 - **Data beats code.**
@@ -84,7 +90,7 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
   - `_StaminaAmount` = 1 - grip/max.
   - Stepped mode is on (`_StaminaMaskRepeat` 8, `_StaminaLevels` 8, repeat intensity 0.5). With no
     mask texture assigned, Unity's default *black* mask applies, so the red strength works out to
-    round(8a)/8 + ceil(8a)/16: fully red by about 69% used.
+    round(8a)/8 + ceil(8a)/16: fully red (5/8 + 6/16 = 1) once 8a passes 5, i.e. just over 62% used.
   - Pixels are multiplied toward red, in linear light.
   - The default hand *cosmetic* sets an outline mask colour (0.49 grey), which turns on a branch
     where outline pixels fade grey to red linearly.
