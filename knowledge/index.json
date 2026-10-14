@@ -5577,9 +5577,9 @@
    "Minecraft Java Edition"
   ],
   "game_version": "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9",
-  "platform": "windows",
+  "platform": "proton",
   "engine": "unity-mono",
-  "route": "other",
+  "route": "reimplementation",
   "tools": [
    "Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)",
    "ilspycmd 8.2.0.7535 on .NET 8",
