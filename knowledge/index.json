@@ -6571,7 +6571,7 @@
    "Claude Code (Opus 5.5)"
   ],
   "humans": [],
-  "date": "2026-10-14",
+  "date": "2026-10-15",
   "links": [
    "https://github.com/Fizz12215/White-Knuckle-Climbing"
   ],
@@ -6590,7 +6590,10 @@
    "fmod",
    "proton",
    "kde-wayland",
-   "reference-capture"
+   "reference-capture",
+   "rewired",
+   "ledge-detection",
+   "camera"
   ]
  },
  {

@@ -13,9 +13,9 @@ status: working
 agents:
 - Claude Code (Opus 5.5)
 humans: []
-date: '2026-10-14'
+date: '2026-10-15'
 links: ["https://github.com/Fizz12215/White-Knuckle-Climbing"]
-tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture]
+tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture, rewired, ledge-detection, camera]
 ---
 
 # White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9 Fabric mod, from your own install
@@ -72,6 +72,43 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
   - each hand drains on its own, at half rate while both hands hang (one flag set each frame in
     `Actions()`);
   - icy handholds slide down at 0.3 units/s, shake after 1 s and slip at 2 s.
+- **Climbing details that are easy to port wrong** (found in a line-by-line review, 0.3.1):
+  - `Hang()` picks how W/S pushes you from a wall probe of `cCon.radius * 2.5`. That reads the
+    controller's own unscaled radius (0.3), so the probe is 0.75 units long; using the 1.5-scaled
+    capsule radius gives 1.125.
+  - Wall friction while hanging tests the sprint *state* (sprint key, input above 0.8, not
+    crouched), not the raw key. Shift alone doesn't count.
+  - Walking off an edge zeroes the downward speed (grounded at the last move, not now, falling), so
+    the fall starts from rest. The post-move speed clamp uses the grounded flag from before the move.
+  - The hang pull is measured from `transform.position`, the standing capsule's centre. Crouching
+    shrinks the capsule but doesn't move it.
+- **Input (Rewired):** the move vector is two independent axes and is *not* normalised, so W+D is
+  (1, 1). `_digitalAxisSimulation` is 0, so keys are instant with no ramp. A host that normalises
+  diagonals (Minecraft gives 0.71, 0.71) feeds about 30% less input into the climb push and
+  one-hand climbing.
+- **Camera and body:**
+  - "Main Cam Target" sits 0.45 (local) above the capsule centre at the 1.5 player scale. The eye is
+    1.8 units up, which is 1.44 blocks (Minecraft 1.62). Crouching (`ChangeHeight`, 0.25 s) lowers it
+    by crouchHeight - standingHeight (1.0 - 1.5), to 1.05 units, which is 0.84 blocks (Minecraft
+    1.27).
+  - You can look 15 degrees past straight up (`camMinY` -105).
+  - The CharacterController steps only 0.15 x 1.5 = 0.225 units (0.18 blocks; Minecraft 0.6).
+- **Screen blood:**
+  - FX_Player_BloodSplatter_Screen is a child of "Overlay Camera". That camera renders only layer 29,
+    at depth 5 (last), with a fixed FOV of 90: `SetCameraFov` changes only the main and hand cameras.
+    So the blood never follows the sprint FOV (+15) or the FOV setting, and it isn't touched by the
+    post-processing.
+  - The UI canvas holding the hurt vignette is Screen Space - Overlay, so the vignette covers the
+    blood.
+- **Looping sounds** (AudioSources on the player, volume set every frame):
+  - windAudio "PlayerFalling" (pitch 1.2): volume max((-vy - 2) * 0.03, 0) for the fall speed in
+    units/s. It restarts on each new fall.
+  - damageAudio (heartbeat) and dyingAudio (mortal wound): volume `damageFXCurve` x 0.8 and
+    `dyingAudioCurve` x 0.8 of health. They're two layers of one piece, playing from level load in
+    step.
+  - Past the 50-unit safe fall distance, the camera shakes by 0.1 per second for as long as the fall
+    lasts.
+  - Grabs play "handhold-<material>" when that set exists (chain, metafungus), else "handhold".
 - **The damage look** is not URP volumes. The player queues an `FXData` zone weighted by
   `damageFXCurve(health/max)`, and `FXManager` lerps its fields into shader globals:
   - `damageFX.hsv.y` = 0.1;
@@ -119,12 +156,15 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
    - health rules run server-side.
 4. Damage look:
    - one post pass with a writable uniform buffer, rewritten every frame;
+   - the screen blood goes through its own GUI pipeline, which applies only the hurt vignette (the
+     game draws it after post-processing, under the UI);
    - the hands go through a custom GUI pipeline whose fragment shader applies the stamina red and
      the damage look per pixel (parameters ride in the vertex colour);
    - shared GLSL include via `#moj_import`.
 5. Asset tool (Python):
    - finds the game through Steam's `libraryfolders.vdf` (and the Windows registry `SteamPath`);
-   - extracts the hand sprites, crosshair, blood sheet and sound sets into a pack folder and zip;
+   - extracts the hand sprites, crosshair, blood sheet, sound sets and the player's looping
+     AudioSources into a pack folder and zip;
    - one FMOD batch subprocess per game file for audio.
 6. Ship a zip with the jar, the tool and per-OS scripts (`.bat` with CRLF; `.sh`), plus a
    step-by-step guide.
@@ -147,7 +187,15 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
   - left-hand stamina at 8 levels, all sprite values within 2/255 of the formula, with the right
     hand unchanged;
   - an in-process dedicated server (join, climb, hang 5 s, no kick);
-  - run with and without the asset pack.
+  - run with and without the asset pack;
+  - since 0.3.1:
+    - eye height 1.44 / 0.84, and 1.62 with climbing off;
+    - crouch-walking off a ledge drops you (the server doesn't pull you back);
+    - the near-death loops at 2% health: 0.422 / 0.794 (the game's curves give 0.423 / 0.797);
+    - the falling wind peaks at 0.77 on a 60-block fall;
+    - ledges under one snow layer grab, while inner corners and four-block floor corners don't.
+  - Each of the player-reported bugs (snow, inner corners, floor seams) was reproduced in a test
+    scene before the fix and passes after it.
 - **Also:** a standalone `runServer` boots clean.
 - **Not verified:**
   - the "server without the mod" auto-off path against a real vanilla server;
@@ -207,6 +255,38 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 13. **Client gametest: keybinds do nothing on the title screen.** Toggle state directly between
     worlds. Also, the framework resets options at test start, so re-apply the custom keybinds in
     the test.
+14. **Unity 6 AudioSources came out silent.** **Cause:** the clip is in `m_Resource` (an
+    AudioResource). The old `m_audioClip` field is still serialized, but as an empty reference
+    (m_PathID 0), so "use `m_audioClip`, else `m_Resource`" picks the empty one. **Fix:** take
+    whichever reference is non-zero.
+15. **Snow-covered ledges couldn't be grabbed** (player report). **Cause:** the ledge probes tested
+    blocks' *visual* shapes, and one snow layer has a 2-pixel visual shape but no collision box. It
+    "covered" every ledge, and wasn't a handhold itself, so snowy biomes had almost nothing to grab.
+    **Fix:** blocks without a collision box don't cover a ledge. The same applies to leaf litter,
+    petals, rails and plants.
+16. **Concave inner corners could be grabbed** (player report). **Cause:** a ledge was "open above,
+    drop below". That passed a block's back edge under a block one up and one back, and a ledge's
+    end pressed into a taller neighbour. **Fix:** also require open space outward *above* the edge
+    (where the hand comes over), and room for a hand (0.1 blocks) either way along it.
+17. **A flat floor could be grabbed where four blocks meet** (player report). **Cause:** the
+    closest point on an edge is often its exact end, which lies on block boundaries. There, a
+    strict "inside the shape" test calls the diagonal neighbour's face "outside". **Fix:** judge, and
+    grab, a point 0.001 blocks inside the edge.
+18. **Crouching held the player at ledges.** **Cause:** Minecraft's sneak guard
+    (`Player.maybeBackOffFromEdge`) runs for `MoverType.SELF`. It also runs on the server's replay
+    of client moves, so a client-only fix gets the player pulled back to the edge. **Fix:** a common
+    mixin keyed on the mod's per-player mode, on both sides.
+19. **The eye height change didn't take at first.** In 1.21.9 player sizes come from
+    `Avatar.getDefaultDimensions(Pose)`. The cached `eyeHeight` is only refreshed on a pose change,
+    so a player who joins or respawns standing keeps 1.62. **Fix:** refresh when it's stale.
+    Fixed-angle test aims also had to look about 3 degrees higher from the lower eye.
+20. **Screen blood slid and shrank while sprinting** (player report). **Cause:** the port projected
+    the splats with the current FOV (they shrank about 23% at +15 degrees), but the game's Overlay
+    Camera stays at 90. **Fix:** project at a fixed 90.
+21. **A test passed for the wrong reason.** The game's 0.2 s grab memory let a hold from the view
+    *before* aiming at a corner satisfy the check. **Fix:** wait out the memory after aiming.
+    Separately, the client gametest's NetworkSynchronizer once reported "interfacing with packets at
+    a lower level" and crashed the server. That's harness accounting; a rerun passed.
 
 ## Assets
 None generated. All art and audio come from the player's own install through the asset tool. The
@@ -219,6 +299,10 @@ investigation (capture, fit, disassembly, port, in-game check) took about one se
 
 ## Open questions
 - The red `worldTint` on lit surfaces, which needs a lit reference scene.
+- Minecraft samples aim and buttons at 20 Hz (the game at 50 Hz or more), so a fast mouse flick can
+  skip a ledge the game would catch. Sampling the aim every frame into the 0.2 s grab memory would
+  close most of the gap.
+- Looking 15 degrees past straight up, which Minecraft clamps at 90.
 - Items, the inventory and perks are not ported (the public beta is climbing only).
 - The server trusts the client's "hanging" flag (no fall damage or fly kick while set). It needs a
   server-side plausibility check before use on public servers.
