@@ -7,15 +7,15 @@ game_version: "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11
 platform: proton
 engine: unity-mono
 route: reimplementation
-tools: ["Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
+tools: ["Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client", "LWJGL tinyfd (Windows folder dialog)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
 anti_cheat: "none: White Knuckle is single-player and is never modified; only its files are read. Minecraft side tested in single-player, LAN and a Fabric dedicated server."
 status: working
 agents:
 - Claude Code (Opus 5.5)
 humans: []
-date: '2026-10-15'
+date: '2026-10-16'
 links: ["https://github.com/Fizz12215/White-Knuckle-Climbing"]
-tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture, rewired, ledge-detection, camera]
+tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture, rewired, ledge-detection, camera, flatpak, xdg-desktop-portal, d-bus, windows-11, pip-pinning]
 ---
 
 # White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9 Fabric mod, from your own install
@@ -31,6 +31,10 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 > throughout. Shaders were disassembled, and reference screenshots were captured by driving the
 > game's dev console. The Minecraft side is checked by an automated client game test, including a
 > dedicated server.
+>
+> Since 0.4.0 the mod builds that pack itself, from a setup screen in Minecraft that explains each
+> step (folders, size, source, how to undo) and waits for the player's OK. It was verified on Linux,
+> in a Flatpak launcher, and on Windows 11 by a second Claude Code session on the owner's dual boot.
 
 ## Setup
 - White Knuckle from Steam (app 3195790), on Fedora 44 (KDE Plasma, Wayland) through Proton
@@ -168,6 +172,17 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
    - one FMOD batch subprocess per game file for audio.
 6. Ship a zip with the jar, the tool and per-OS scripts (`.bat` with CRLF; `.sh`), plus a
    step-by-step guide.
+7. In-game build (0.4.0): the jar carries the extractor and a pinned `requirements.txt`. A screen at
+   the title finds the game and a Python 3.10-3.14, then runs each step after its own confirmation
+   page:
+   - make a private venv (the same folder the scripts use, so either's setup is reused);
+   - pip-install the pinned wheels (`--only-binary=:all:`);
+   - run the extractor straight into `resourcepacks/`;
+   - turn the pack on and reload.
+
+   A `wk_pack_info.json` version inside the pack lets the mod offer a rebuild when it needs newer
+   files. "Choose its folder" uses the desktop portal on Linux (Gotchas 22-23) and LWJGL's tinyfd on
+   Windows.
 
 ## Verification
 - **Oracle 1, the real game:**
@@ -196,10 +211,26 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
     - ledges under one snow layer grab, while inner corners and four-block floor corners don't.
   - Each of the player-reported bugs (snow, inner corners, floor seams) was reproduced in a test
     scene before the fix and passes after it.
+- **The in-game build (0.4.0):**
+  - A gametest with an empty `XDG_DATA_HOME` clicks Continue through all four steps on the real
+    install. It checks the pack is on and the hands load, that Stop changes nothing, and that an
+    out-of-date pack brings back the offer with two steps.
+  - Every page is screenshotted; long Windows paths wrap clear of the buttons.
+- **Windows 11:**
+  - A second Claude Code session on the owner's Windows dual boot ran the same tests and the real
+    game (clicking automated with universal-modder's Windows tools), then pushed results to a private
+    repo.
+  - Checked: Python 3.13 installed by winget, tinyfd's dialog in front of Minecraft, fullscreen
+    switching, the `.bat`.
+  - It found the stale-cache bug (Gotcha 28) and sent the fix.
+- **Flatpak:** the owner picked White Knuckle through the portal in the real Prism Flatpak, and the
+  build ran from the document-portal path.
 - **Also:** a standalone `runServer` boots clean.
 - **Not verified:**
   - the "server without the mod" auto-off path against a real vanilla server;
-  - the Windows scripts beyond one tester's PC;
+  - on Windows, the `.bat`'s own venv setup and its install-Python branch (it ran with a venv already
+    there);
+  - `flatpak document-unexport` as the undo for the portal grant;
   - the red `worldTint` on lit surfaces, left out because the green-screen rooms are unlit.
 
 ## Gotchas
@@ -288,6 +319,54 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
     Separately, the client gametest's NetworkSynchronizer once reported "interfacing with packets at
     a lower level" and crashed the server. That's harness accounting; a rerun passed.
 
+22. **A Flatpak launcher can't see the Steam folder.** Prism from Flathub (and most Steam Deck
+    setups) runs Minecraft in its sandbox, where `~/.local/share/Steam` doesn't exist.
+    - `flatpak override --filesystem=~/.local/share/Steam:ro` works, but it also exposes Steam's
+      `config/` (its login and settings files; `config.vdf` was readable from inside) to every mod in
+      the launcher.
+    - **Fix:** the FileChooser portal with `directory: true`. The folder picked comes back as a
+      document-portal path (`/run/user/<uid>/doc/<id>/White Knuckle`) the sandbox can read. It's
+      remembered across restarts, and `flatpak document-unexport --doc-id=<id>` takes it away.
+    - A fallback command should grant only the game folder.
+23. **Nothing in Prism's sandbox could wait for the portal's answer.**
+    - The sandbox's zenity is 3.44 (GTK3), whose dialog shows only the sandbox.
+    - Its Python has no `gi`.
+    - `gdbus call` gets the request handle and exits, which closes the request.
+
+    **Fix:** about 300 lines of Java D-Bus client over the session socket: `UnixDomainSocketAddress`,
+    SASL EXTERNAL with the uid from `/proc/self`, `Hello`, `AddMatch` on the request path,
+    `OpenFile`, then wait for `Response`. It works through the sandbox's bus proxy
+    (`unix:path=/run/flatpak/bus`).
+24. **Switching away from fullscreen Minecraft froze it** (NVIDIA 615 driver, KDE Wayland, Flatpak
+    Prism). About 8 s after the player opened a terminal, an Xid 31 MMU fault hit Minecraft's render
+    thread, which then waited in `glClientWaitSync` forever. Minimizing and restoring in a gametest
+    didn't reproduce it.
+    - **Fix in the mod:** leave fullscreen before opening any other window (picker, installer), and
+      go back after.
+    - Never ask players to run commands while the game is open.
+25. **Windows: never call a bare `python`.** It can be the Microsoft Store alias, or Store Python,
+    whose AppData writes are redirected (a venv in `%LOCALAPPDATA%` lands elsewhere).
+    - **Fix:** use `py -3.X` plus the known install paths (`%LOCALAPPDATA%\Programs\Python\...`,
+      `%ProgramFiles%\Python3XX`), which also find a fresh winget install without a restart.
+    - On Windows 11, `winget install Python.Python.3.13` installed per user with no UAC prompt.
+26. **Steam's registry `SteamPath` is lower case with `/`** (`c:/program files (x86)/steam`), and
+    Windows paths compare case-insensitively, so that spelling wins a dedupe and shows in the UI.
+    `toRealPath()` gives the real one.
+27. **pip evaluates `python_version` markers against the Python running it, not
+    `--python-version`.** To check a pinned file for Python 3.10-3.14 on Linux and Windows from one
+    machine:
+    - resolve the markers per target with pip's own `packaging` first;
+    - then `pip install --dry-run --python-version X --platform Y --report`.
+
+    numpy needed three pins (2.2.6, 2.4.6, 2.5.4).
+28. **A cached "is the pack there?" answer went stale**, so a pack switched on showed up late.
+    - Cached resource checks must be dropped on every reload (Fabric API v1
+      `ResourceLoader.get(CLIENT_RESOURCES).registerReloader`).
+    - `Options.updateResourcePacks` only reloads when the selected list changed: call
+      `reloadResourcePacks()` for a rebuilt pack that's already on.
+29. **Java's `Properties` mangles Windows paths.** `store` writes `C\:\\...`, and `load` eats
+    single backslashes typed by hand. Read that key's raw line, and write the file by hand with `/`.
+
 ## Assets
 None generated. All art and audio come from the player's own install through the asset tool. The
 hurt vignette is a fitted analytic curve, `0.086 + 0.914 * (1 - exp(-(r/0.287)^2.75))`, within
@@ -303,6 +382,9 @@ investigation (capture, fit, disassembly, port, in-game check) took about one se
   skip a ledge the game would catch. Sampling the aim every frame into the 0.2 s grab memory would
   close most of the gap.
 - Looking 15 degrees past straight up, which Minecraft clamps at 90.
-- Items, the inventory and perks are not ported (the public beta is climbing only).
+- Items, the inventory and perks are not ported (the public beta is climbing only). They're planned
+  after a port to Minecraft 26.3 (unobfuscated; see
+  [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md)). The hand, blood
+  and damage shaders will need 26.3's ShaderC rules, and a check under both OpenGL and Vulkan.
 - The server trusts the client's "hanging" flag (no fall damage or fly kick while set). It needs a
   server-side plausibility check before use on public servers.
