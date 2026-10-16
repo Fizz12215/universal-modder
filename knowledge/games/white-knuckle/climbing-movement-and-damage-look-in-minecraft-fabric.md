@@ -1,13 +1,13 @@
 ---
 kind: game
-title: "White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9 Fabric mod, from your own install"
+title: "White Knuckle's climbing, movement and damage look as a Minecraft Fabric mod (1.21.9, ported to 26.3), from your own install"
 game: "White Knuckle"
 games_also: ["Minecraft Java Edition"]
-game_version: "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9"
+game_version: "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9; ported to Minecraft Java 26.3 with Fabric Loader 0.19.5, Fabric API 0.162.0+26.3 (OpenGL and Vulkan)"
 platform: proton
 engine: unity-mono
 route: reimplementation
-tools: ["Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client", "LWJGL tinyfd (Windows folder dialog)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
+tools: ["Fabric on 1.21.9 (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "Fabric on 26.3 (non-remapping Loom 1.18, Gradle 9.7.1, JDK 25)", "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client", "LWJGL tinyfd (Windows folder dialog, 1.21.9)", "SDL3 SDL_ShowOpenFolderDialog (Windows folder dialog, 26.3)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
 anti_cheat: "none: White Knuckle is single-player and is never modified; only its files are read. Minecraft side tested in single-player, LAN and a Fabric dedicated server."
 status: working
 agents:
@@ -15,10 +15,10 @@ agents:
 humans: []
 date: '2026-10-16'
 links: ["https://github.com/Fizz12215/White-Knuckle-Climbing"]
-tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture, rewired, ledge-detection, camera, flatpak, xdg-desktop-portal, d-bus, windows-11, pip-pinning]
+tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port, shader-disassembly, dxbc, fsb5, ima-adpcm, fmod, proton, kde-wayland, reference-capture, rewired, ledge-detection, camera, flatpak, xdg-desktop-portal, d-bus, windows-11, pip-pinning, '26.3', vulkan, sdl3, porting]
 ---
 
-# White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9 Fabric mod, from your own install
+# White Knuckle's climbing, movement and damage look as a Minecraft Fabric mod (1.21.9, ported to 26.3), from your own install
 
 > A Fabric mod that plays like White Knuckle's climber:
 > - two-handed grip climbing on ledges, bars and ice, with per-hand grip;
@@ -35,11 +35,17 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 > Since 0.4.0 the mod builds that pack itself, from a setup screen in Minecraft that explains each
 > step (folders, size, source, how to undo) and waits for the player's OK. It was verified on Linux,
 > in a Flatpak launcher, and on Windows 11 by a second Claude Code session on the owner's dual boot.
+>
+> 0.5.0 (not released yet) ports it to Minecraft 26.3, unchanged in play. The same game test passes
+> under both of 26.3's graphics engines, OpenGL and Vulkan. What moved in 26.3, and the traps that only
+> showed at runtime, are in
+> [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md) (*Porting a 1.21.x mod to 26.3*, Gotchas 8-12).
 
 ## Setup
 - White Knuckle from Steam (app 3195790), on Fedora 44 (KDE Plasma, Wayland) through Proton
   Experimental.
-- Minecraft side: the versions above, a Prism Launcher instance, JDK 25 compiling with `--release 21`.
+- Minecraft side: the versions above, a Prism Launcher instance per Minecraft version. 1.21.9: JDK 25
+  compiling with `--release 21`. 26.3: Java 25.
 - Decompile: ilspycmd **8.2.0.7535** on .NET 8 (`DOTNET_ROLL_FORWARD=Major`). Newer ilspycmd builds
   want a newer runtime.
 - Asset tool: UnityPy and TypeTreeGeneratorAPI (MonoBehaviour type trees are stripped, so they're
@@ -164,7 +170,8 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
      game draws it after post-processing, under the UI);
    - the hands go through a custom GUI pipeline whose fragment shader applies the stamina red and
      the damage look per pixel (parameters ride in the vertex colour);
-   - shared GLSL include via `#moj_import`.
+   - shared GLSL include via `#moj_import` (26.3: `#include`, under ShaderC's rules; see
+     [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md)).
 5. Asset tool (Python):
    - finds the game through Steam's `libraryfolders.vdf` (and the Windows registry `SteamPath`);
    - extracts the hand sprites, crosshair, blood sheet, sound sets and the player's looping
@@ -181,8 +188,15 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
    - turn the pack on and reload.
 
    A `wk_pack_info.json` version inside the pack lets the mod offer a rebuild when it needs newer
-   files. "Choose its folder" uses the desktop portal on Linux (Gotchas 22-23) and LWJGL's tinyfd on
-   Windows.
+   files. "Choose its folder" uses the desktop portal on Linux (Gotchas 22-23). On Windows it used LWJGL's
+   tinyfd on 1.21.9, and SDL3's folder dialog on 26.3, which ships no tinyfd.
+8. Port to 26.3 (0.5.0), with the 0.4.0 release tag as the source of truth and every 26.3 name checked
+   with `javap`:
+   - the build switch, then one commit per area until the client and the gametest compile;
+   - every mixin target compared with the 26.3 class before the first launch (3 of 21 had changed);
+   - the damage look joins 26.3's list of requested post effects every frame, keeping its writable
+     uniform buffer;
+   - pack format 97 and a new pack content version, so 0.4.0 packs get the rebuild offer.
 
 ## Verification
 - **Oracle 1, the real game:**
@@ -225,12 +239,19 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
   - It found the stale-cache bug (Gotcha 28) and sent the fix.
 - **Flatpak:** the owner picked White Knuckle through the portal in the real Prism Flatpak, and the
   build ran from the document-portal path.
+- **The 26.3 port (0.5.0), on Linux with an NVIDIA GPU:**
+  - the full game test on OpenGL without the pack, and on OpenGL and Vulkan with a pack rebuilt for 26.3;
+  - the damage look within 0.24-0.26/255 of the model at every health level, as on 1.21.9;
+  - the in-game build on both engines (libraries, build, switch on, the out-of-date offer, Stop);
+  - screenshots of the hands, blood, damage look and every setup page on both engines. They caught a
+    screen with no text that every check had passed (Gotcha 30).
 - **Also:** a standalone `runServer` boots clean.
 - **Not verified:**
   - the "server without the mod" auto-off path against a real vanilla server;
   - on Windows, the `.bat`'s own venv setup and its install-Python branch (it ran with a venv already
     there);
   - `flatpak document-unexport` as the undo for the portal grant;
+  - the 26.3 port on Windows (SDL3's folder dialog above all) and in a long manual play;
   - the red `worldTint` on lit surfaces, left out because the green-screen rooms are unlit.
 
 ## Gotchas
@@ -366,6 +387,11 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
       `reloadResourcePacks()` for a rebuilt pack that's already on.
 29. **Java's `Properties` mangles Windows paths.** `store` writes `C\:\\...`, and `load` eats
     single backslashes typed by hand. Read that key's raw line, and write the file by hand with `/`.
+30. **After the 26.3 port the setup screen showed only its title and buttons**, though every gametest
+    check passed. Two 26.3 changes, both silent: a `ScrollableLayout` given its maximum height before its
+    content was laid out stays 0 px tall, and a `Screen` now has `minecraft` from its constructor, so an
+    `if (minecraft != null) rebuildWidgets()` built a second set of widgets. Causes and fixes:
+    [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md), Gotchas 9-10. State checks can't see layout: look at the screenshots.
 
 ## Assets
 None generated. All art and audio come from the player's own install through the asset tool. The
@@ -382,9 +408,7 @@ investigation (capture, fit, disassembly, port, in-game check) took about one se
   skip a ledge the game would catch. Sampling the aim every frame into the 0.2 s grab memory would
   close most of the gap.
 - Looking 15 degrees past straight up, which Minecraft clamps at 90.
-- Items, the inventory and perks are not ported (the public beta is climbing only). They're planned
-  after a port to Minecraft 26.3 (unobfuscated; see
-  [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md)). The hand, blood
-  and damage shaders will need 26.3's ShaderC rules, and a check under both OpenGL and Vulkan.
+- Items, the inventory and perks are not ported (the public beta is climbing only). They come next,
+  on 26.3 only (0.4.0 is the last 1.21.9 version).
 - The server trusts the client's "hanging" flag (no fall damage or fly kick while set). It needs a
   server-side plausibility check before use on public servers.

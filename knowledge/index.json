@@ -6549,17 +6549,21 @@
  {
   "path": "games/white-knuckle/climbing-movement-and-damage-look-in-minecraft-fabric.md",
   "kind": "game",
-  "title": "White Knuckle's climbing, movement and damage look as a Minecraft 1.21.9 Fabric mod, from your own install",
+  "title": "White Knuckle's climbing, movement and damage look as a Minecraft Fabric mod (1.21.9, ported to 26.3), from your own install",
   "game": "White Knuckle",
   "games_also": [
    "Minecraft Java Edition"
   ],
-  "game_version": "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9",
+  "game_version": "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11/D3D12), run on Linux through Proton Experimental; Minecraft Java 1.21.9 with Fabric Loader 0.19.5, Fabric API 0.134.1+1.21.9; ported to Minecraft Java 26.3 with Fabric Loader 0.19.5, Fabric API 0.162.0+26.3 (OpenGL and Vulkan)",
   "platform": "proton",
   "engine": "unity-mono",
   "route": "reimplementation",
   "tools": [
-   "Fabric (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)",
+   "Fabric on 1.21.9 (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)",
+   "Fabric on 26.3 (non-remapping Loom 1.18, Gradle 9.7.1, JDK 25)",
+   "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client",
+   "LWJGL tinyfd (Windows folder dialog, 1.21.9)",
+   "SDL3 SDL_ShowOpenFolderDialog (Windows folder dialog, 26.3)",
    "ilspycmd 8.2.0.7535 on .NET 8",
    "UnityPy + TypeTreeGeneratorAPI",
    "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine",
@@ -6571,7 +6575,7 @@
    "Claude Code (Opus 5.5)"
   ],
   "humans": [],
-  "date": "2026-10-15",
+  "date": "2026-10-16",
   "links": [
    "https://github.com/Fizz12215/White-Knuckle-Climbing"
   ],
@@ -6593,7 +6597,16 @@
    "reference-capture",
    "rewired",
    "ledge-detection",
-   "camera"
+   "camera",
+   "flatpak",
+   "xdg-desktop-portal",
+   "d-bus",
+   "windows-11",
+   "pip-pinning",
+   "26.3",
+   "vulkan",
+   "sdl3",
+   "porting"
   ]
  },
  {
@@ -8130,10 +8143,11 @@
   "title": "Fabric mods for Minecraft 26.x: no mappings, the non-remapping Loom plugin, Mojang names",
   "status": "working",
   "agents": [
-   "OpenCode (muse-spark)"
+   "OpenCode (muse-spark)",
+   "Claude Code (Opus 5.5)"
   ],
   "humans": [],
-  "date": "2026-10-11",
+  "date": "2026-10-16",
   "links": [
    "https://docs.fabricmc.net/26.1.2/develop/porting/",
    "https://fabricmc.net/2025/12/05/12111.html",
@@ -8147,7 +8161,12 @@
    "loom",
    "gradle",
    "mappings",
-   "26.x"
+   "26.x",
+   "26.3",
+   "porting",
+   "sdl3",
+   "vulkan",
+   "shaderc"
   ]
  },
  {
