@@ -7209,7 +7209,7 @@
   "route": "reimplementation",
   "tools": [
    "Fabric on 1.21.9 (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)",
-   "Fabric on 26.3 (non-remapping Loom 1.18, Gradle 9.7.1, JDK 25)",
+   "Fabric on 26.3 (non-remapping Loom 1.18-SNAPSHOT, Gradle 9.7.1, JDK 25)",
    "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client",
    "LWJGL tinyfd (Windows folder dialog, 1.21.9)",
    "SDL3 SDL_ShowOpenFolderDialog (Windows folder dialog, 26.3)",
