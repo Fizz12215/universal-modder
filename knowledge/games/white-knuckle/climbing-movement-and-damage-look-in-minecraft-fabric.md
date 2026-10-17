@@ -7,7 +7,7 @@ game_version: "White Knuckle Steam build 25612096 (Unity 6000.3.9f1, Mono, D3D11
 platform: proton
 engine: unity-mono
 route: reimplementation
-tools: ["Fabric on 1.21.9 (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "Fabric on 26.3 (non-remapping Loom 1.18, Gradle 9.7.1, JDK 25)", "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client", "LWJGL tinyfd (Windows folder dialog, 1.21.9)", "SDL3 SDL_ShowOpenFolderDialog (Windows folder dialog, 26.3)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
+tools: ["Fabric on 1.21.9 (Loom 1.12.7, Gradle 9.1, Mojang mappings, JDK 25)", "Fabric on 26.3 (non-remapping Loom 1.18-SNAPSHOT, Gradle 9.7.1, JDK 25)", "xdg-desktop-portal FileChooser through an own pure-Java D-Bus client", "LWJGL tinyfd (Windows folder dialog, 1.21.9)", "SDL3 SDL_ShowOpenFolderDialog (Windows folder dialog, 26.3)", "ilspycmd 8.2.0.7535 on .NET 8", "UnityPy + TypeTreeGeneratorAPI", "vkd3d-compiler.exe (Fedora mingw64-vkd3d) under Wine", "Python 3.10-3.14"]
 anti_cheat: "none: White Knuckle is single-player and is never modified; only its files are read. Minecraft side tested in single-player, LAN and a Fabric dedicated server."
 status: working
 agents:
@@ -39,7 +39,8 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
 > 0.5.0 (not released yet) ports it to Minecraft 26.3, unchanged in play. The same game test passes
 > under both of 26.3's graphics engines, OpenGL and Vulkan. What moved in 26.3, and the traps that only
 > showed at runtime, are in
-> [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md) (*Porting a 1.21.x mod to 26.3*, Gotchas 8-12).
+> [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md)
+> (*Porting a 1.21.x mod to 26.3*, Gotchas 8-12).
 
 ## Setup
 - White Knuckle from Steam (app 3195790), on Fedora 44 (KDE Plasma, Wayland) through Proton
@@ -391,7 +392,8 @@ tags: [white-knuckle, unity, unity-6, minecraft, fabric, climbing, physics-port,
     check passed. Two 26.3 changes, both silent: a `ScrollableLayout` given its maximum height before its
     content was laid out stays 0 px tall, and a `Screen` now has `minecraft` from its constructor, so an
     `if (minecraft != null) rebuildWidgets()` built a second set of widgets. Causes and fixes:
-    [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md), Gotchas 9-10. State checks can't see layout: look at the screenshots.
+    [Fabric mods for 26.x](../../techniques/fabric-mod-for-26-x-without-mappings.md), Gotchas 9-10. State checks
+    can't see layout: look at the screenshots.
 
 ## Assets
 None generated. All art and audio come from the player's own install through the asset tool. The

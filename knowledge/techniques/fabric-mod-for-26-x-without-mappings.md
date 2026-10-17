@@ -73,31 +73,39 @@ tags:
    4))`. When unsure of a name, `javap -cp client.jar <class>` beats memory.
 
 ## Porting a 1.21.x mod to 26.3
-Learned porting [White Knuckle Climbing](../games/white-knuckle/climbing-movement-and-damage-look-in-minecraft-fabric.md) from 1.21.9 to 26.3 (Fabric Loader 0.19.5, Fabric API 0.162.0+26.3,
-Loom 1.18-SNAPSHOT, Gradle 9.7.1, JDK 25): custom GUI pipelines and shaders, a post effect, 21 mixins, a setup
-screen and a client gametest. The mod already used Mojang mappings, so most names carried over. Every name below
-was checked with `javap -p` against the 26.3 jars.
+Learned porting
+[White Knuckle Climbing](../games/white-knuckle/climbing-movement-and-damage-look-in-minecraft-fabric.md) from
+1.21.9 to 26.3 (Fabric Loader 0.19.5, Fabric API 0.162.0+26.3, Loom 1.18-SNAPSHOT, Gradle 9.7.1, JDK 25): custom
+GUI pipelines and shaders, a post effect, 21 mixins, a setup screen and a client gametest. The mod already used
+Mojang mappings, so most names carried over. Every name below was checked with `javap -p` against the 26.3 jars.
 
 - **Method that kept the port identical:** the released 1.21.9 tag as the source of truth (`git show <tag>:<path>`),
   one commit per area (build, client compiles, gametest compiles, mixin targets, then runtime), and the client
   gametest as the oracle on both graphics engines. Compiling proves little: three of the problems below compiled
   and only showed in screenshots or at launch.
-- **Render API:** four `com.mojang.blaze3d` classes moved to `com.mojang.renderpearl.api`:
-  `pipeline.RenderPipeline`, `shaders.UniformType` (now `pipeline.UniformType`), `buffers.GpuBuffer` and
-  `systems.GpuDevice` (now `device.GpuDevice`). `Std140Builder` and `RenderSystem.getDevice()` stayed. The pipeline
-  builder has no `withUniform`/`withSampler` (uniforms come from bind group layouts); `RenderPipelines.GUI_TEXTURED_SNIPPET`
-  already binds `Globals`, so a GUI pipeline built on it just drops its `withUniform("Globals", ...)`.
+- **Render API:** the GPU API moved from `com.mojang.blaze3d` to `com.mojang.renderpearl.api`. The four classes
+  this mod used: `pipeline.RenderPipeline`, `shaders.UniformType` (now `pipeline.UniformType`), `buffers.GpuBuffer`
+  and `systems.GpuDevice` (now `device.GpuDevice`). Many more moved too (textures, command encoders and render
+  passes, vertex formats, the OpenGL backend), so `javap` each one you use. `Std140Builder` and
+  `RenderSystem.getDevice()` stayed. The pipeline builder has no `withUniform`/`withSampler` (uniforms come from
+  bind group layouts, `withBindGroupLayout`); `RenderPipelines.GUI_TEXTURED_SNIPPET` already binds `Globals`, so a
+  GUI pipeline built on it just drops its `withUniform("Globals", ...)`. That field is private in vanilla; Fabric
+  API's access wideners open it.
 - **Custom shaders** go through ShaderC for both OpenGL and Vulkan: `#version` first, then
   `#extension GL_ARB_separate_shader_objects : require`, `layout(location = N)` on every `in`/`out` (matching
   between the stages), `#include` instead of `#moj_import`, and include guards in shared files. Vanilla's own
-  `position_tex_color` and `post/blit` in the 26.3 jar show the shape. Test on both engines (Gotcha 11).
+  `position_tex_color` and `post/blit` in the 26.3 jar show the shape (but not `terrainglobals.glsl`, whose guard
+  has a typo: `#ifndef MINECRAFT_TERRAINGLOBLAS_GLSL`). Test on both engines (Gotcha 11).
 - **Post effects:** `GameRenderer.setPostEffect/currentPostEffect/clearPostEffect` are gone. Add your id to the
-  requested list every frame (as in [FPV LOGIC](../games/fpv-logic/fpv-logic-drones-flight-model-rc-radio-and-3d-models-in-minecraft.md), Gotcha 9; a mixin at `GameRenderer.update` TAIL works too).
-  All requested effects run, so yours now stacks with, say, a spectated creeper's instead of replacing it.
+  requested list every frame (as in
+  [FPV LOGIC](../games/fpv-logic/fpv-logic-drones-flight-model-rc-radio-and-3d-models-in-minecraft.md), Gotcha 9;
+  a mixin at `GameRenderer.update` TAIL works too). All requested effects run, so yours now stacks with, say, a
+  spectated creeper's instead of replacing it.
   - Uniforms needn't be static: making the pass's buffer writable still works on 26.3 (a `@ModifyArg` on the
     `GpuDevice.createBuffer` call in `PostPass.<init>` adding `GpuBuffer.USAGE_COPY_DST`), and the mod rewrites it
     every frame through `ShaderManager.getPostChain(id, LevelTargetBundle.MAIN_TARGETS)` → `PostChain.passes` →
-    `PostPass.customUniforms`. One JSON then covers every strength.
+    `PostPass.customUniforms`. Both fields are private, and Fabric API doesn't open them: use your own access
+    widener or accessor mixins. One JSON then covers every strength.
 - **Camera:** `GameRenderer.getFov(Camera, float, boolean)` is gone. `Camera.update` stores `calculateFov(partial)`
   (the old `getFov(..., true)`, panorama and death/fluid changes included) and `calculateHudFov(partial)` (the old
   `false` case) once per frame, before `renderLevel`; hook `calculateFov`. `bobHurt`/`bobView` take
@@ -109,21 +117,26 @@ was checked with `javap -p` against the 26.3 jars.
   `Component`. `ConfirmLinkScreen.confirmLinkNow` takes a `URI`. `Util.getPlatform().openPath` is gone:
   `com.mojang.blaze3d.Blaze3D.openPath(Path)`.
 - **Input and window (SDL3):** keys are SDL scancodes (`SDLScancode.SDL_SCANCODE_*` with
-  `InputConstants.Type.KEYBOARD`, as in [the RE2 composite](../games/minecraft/resident-evil-2-s-live-picture-composited-into-minecraft-wit.md), Gotcha 5), mouse buttons `SDLMouse.SDL_BUTTON_*`;
-  Fabric's `KeyBindingHelper.registerKeyBinding` → `KeyMappingHelper.registerKeyMapping`. The client gametest's
-  `TestInput` takes the same SDL codes. `Window.isFullscreen/toggleFullScreen` are gone: F11 flips
-  `options.fullscreen()`, whose callback calls `Window.setFullscreen`, and every real window change is copied back
-  into the option and saved to `options.txt`.
-- **LWJGL 3.4.3 ships no GLFW and no tinyfd.** For a native folder dialog: SDL3's
+  `InputConstants.Type.KEYBOARD`, as in
+  [the RE2 composite](../games/minecraft/resident-evil-2-s-live-picture-composited-into-minecraft-wit.md),
+  Gotcha 5), mouse buttons `SDLMouse.SDL_BUTTON_*` with `InputConstants.Type.MOUSE`; Fabric's
+  `KeyBindingHelper.registerKeyBinding` → `KeyMappingHelper.registerKeyMapping` (module
+  `fabric-key-mapping-api-v1`). The client gametest's `TestInput` takes the same SDL codes.
+  `Window.isFullscreen/toggleFullScreen` are gone: F11 flips `options.fullscreen()`, whose callback calls
+  `Window.setFullscreen`, and every real window change is copied back into the option and saved to `options.txt`.
+- **Minecraft 26.3 ships no GLFW and no tinyfd.** Its library list has `lwjgl-sdl` 3.4.3 instead (1.21.9 had
+  `lwjgl-glfw` and `lwjgl-tinyfd` 3.3.3; LWJGL itself still publishes both). For a native folder dialog: SDL3's
   `SDLDialog.SDL_ShowOpenFolderDialog(callback, 0, window.handle(), defaultPath, false)`, called on the main
   thread. The callback can come on any thread: a NULL list means an error (`SDLError.SDL_GetError()`), an empty
   list a cancel. Make the callback always complete whatever waits on it, even if it throws.
 - **Smaller renames:** `ResourceLocation` → `Identifier`; `PayloadTypeRegistry.playC2S/playS2C` →
   `serverboundPlay/clientboundPlay`; `displayClientMessage(c, true)` / `(c, false)` → `sendOverlayMessage(c)` /
   `sendSystemMessage(c)`; Fabric `ResourceLoader.registerReloader` → `registerReloadListener`;
-  `net.minecraft.Util` → `net.minecraft.util.Util`; `PoseStack.mulPose(Quaternionf)` → `rotate`.
-- **Client gametest:** no `waitForChunksRender` (wait some ticks instead); `TestDedicatedServerContext.connect()`
-  returns a `TestDedicatedServerConnection` that has `close()` but isn't `AutoCloseable`.
+  `net.minecraft.Util` → `net.minecraft.util.Util`; `PoseStack.mulPose(Quaternionf)` → `rotate(Quaternionfc)`.
+- **Client gametest:** 1.21.9's `TestClientWorldContext` is gone, and `waitForChunksRender` moved to
+  `TestServerConnection`, which you get from `TestSingleplayerContext.getConnection()` or
+  `TestDedicatedServerContext.connect()`. The `TestDedicatedServerConnection` that `connect()` returns is
+  `AutoCloseable`, so open it in a try-with-resources.
 - **Versions:** resource pack format 97.1 (`version.json` → `pack_version`); a `pack.mcmeta` with
   `pack_format`/`min_format`/`max_format` all 97 loads. Fabric API 0.162.0+26.3 needs Fabric Loader 0.19.3 or
   newer, so raise a `fabricloader` dependency that asks for less.
@@ -193,5 +206,6 @@ was checked with `javap -p` against the 26.3 jars.
   (Setup, and Gotcha 7 for more 26.x renames) and
   [Portalcraft](../games/portal-2/portalcraft-minecraft-inside-portal-2.md).
 - *Porting a 1.21.x mod to 26.3* and Gotchas 8-12: the 1.21.9 → 26.3 port of
-  [White Knuckle Climbing](../games/white-knuckle/climbing-movement-and-damage-look-in-minecraft-fabric.md). Its client gametest passed on OpenGL and on Vulkan, with and without its
-  asset pack, and its in-game asset build passed on both (Linux, NVIDIA driver 615.78).
+  [White Knuckle Climbing](../games/white-knuckle/climbing-movement-and-damage-look-in-minecraft-fabric.md). Its
+  client gametest passed on OpenGL and on Vulkan, with and without its asset pack, and its in-game asset build
+  passed on both (Linux, NVIDIA driver 615.78).
